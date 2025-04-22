@@ -54,6 +54,12 @@ This will convert all PDF files in the "in" directory to CSV files in the "out" 
 - `--verbose`, `-v`: Enable verbose output for debugging
 - `--thorough`, `-t`: Enable thorough processing for PDFs with non-standard formatting
 
+Example  with additional options:
+
+```bash
+./process_all_pdfs.py --verbose --thorough
+```
+
 Example with custom directories:
 
 ```bash
@@ -98,7 +104,7 @@ The script intelligently handles date parsing across statement periods:
 After converting multiple statements to CSV, you can combine them into a single file:
 
 ```bash
-python combine_csv.py
+python combine_csv_files.py
 ```
 
 This will:
