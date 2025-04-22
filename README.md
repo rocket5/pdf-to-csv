@@ -37,7 +37,30 @@ By default, the CSV file will be saved to the "out" directory. You can specify a
 python pdf_to_csv.py "in/your_statement.pdf" --output "path/to/output.csv"
 ```
 
-### Options
+### Processing Multiple PDF Files
+
+To process all PDF files in the input directory at once:
+
+```bash
+python process_all_pdfs.py
+```
+
+This will convert all PDF files in the "in" directory to CSV files in the "out" directory.
+
+#### Options for process_all_pdfs.py
+
+- `--input`, `-i`: Specify the input directory containing PDF files (default: "in")
+- `--output`, `-o`: Specify the output directory for CSV files (default: "out")
+- `--verbose`, `-v`: Enable verbose output for debugging
+- `--thorough`, `-t`: Enable thorough processing for PDFs with non-standard formatting
+
+Example with custom directories:
+
+```bash
+python process_all_pdfs.py --input "statements" --output "converted"
+```
+
+### Single File Options
 
 - `--output`, `-o`: Specify the output CSV file path
 - `--verbose`, `-v`: Enable verbose output for debugging
@@ -59,6 +82,30 @@ The generated CSV file includes the following columns:
 - `foreign_amount`: Original amount for foreign transactions (if applicable)
 - `foreign_currency`: Currency code for foreign transactions (if applicable)
 - `exchange_rate`: Exchange rate applied to foreign transactions (if applicable)
+
+## Date Parsing
+
+The script intelligently handles date parsing across statement periods:
+
+- Extracts statement date and period from the PDF to determine the correct year for each transaction
+- Handles transactions that span across month/year boundaries
+- Correctly assigns years to transactions when a statement covers two different years
+- Parses short date formats (e.g., "JAN15") into standardized ISO format (YYYY-MM-DD)
+- Adjusts transaction years based on the statement month to ensure accuracy
+
+## Combining CSV Files
+
+After converting multiple statements to CSV, you can combine them into a single file:
+
+```bash
+python combine_csv.py
+```
+
+This will:
+- Merge all CSV files from the "out" directory
+- Sort transactions by date
+- Remove any duplicates
+- Save the combined data to "combined.csv" in the main directory
 
 ## Limitations
 

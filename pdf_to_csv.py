@@ -28,18 +28,33 @@ def extract_transactions(pdf_path, verbose=False, thorough=False):
     # Extract statement date to get correct year
     statement_year = datetime.now().year
     statement_month = None
-    date_match = re.search(r'STATEMENT DATE:\s*(\w+)\s+(\d{2}),\s*(\d{4})', all_text)
+    # Try various formats starting with the most structured one
+    date_match = re.search(r'STATEMENT DATE:\s*(\w+)\s+(\d{1,2}),\s*(\d{4})', all_text)
+    if not date_match:
+        # Try with no space between month and day but with comma
+        date_match = re.search(r'STATEMENT DATE:\s*(\w+?)(\d{1,2}),\s*(\d{4})', all_text)
+    if not date_match:
+        # Try with no spaces and no comma
+        date_match = re.search(r'STATEMENT DATE:(\w+?)(\d{1,2})(\d{4})', all_text)
     if date_match:
         statement_month = date_match.group(1)
+        statement_day = int(date_match.group(2))
         statement_year = int(date_match.group(3))
-        print(f"Statement date: {statement_month} {statement_year}")
+        print(f"Statement date: {statement_month} {statement_day}, {statement_year}")
     else:
         print("Warning: Could not find statement date. Using current year.")
     
     # Extract statement period to determine transaction years
-    period_match = re.search(r'STATEMENT PERIOD:\s*(\w+)\s+(\d{2}),\s*(\d{4})\s*to\s*(\w+)\s*(\d{2}),\s*(\d{4})', all_text)
-    start_year = statement_year - 1  # Default to previous year for December transactions
+    start_year = statement_year
     end_year = statement_year
+    # Try various formats for statement period
+    period_match = re.search(r'STATEMENT PERIOD:\s*(\w+)\s+(\d{1,2}),\s*(\d{4})\s*to\s*(\w+)\s+(\d{1,2}),\s*(\d{4})', all_text)
+    if not period_match:
+        # Try with no spaces between month and day
+        period_match = re.search(r'STATEMENT PERIOD:\s*(\w+?)(\d{1,2}),?(\d{4})\s*to\s*(\w+?)(\d{1,2}),?(\d{4})', all_text)
+    if not period_match:
+        # Try with no spaces at all
+        period_match = re.search(r'STATEMENT PERIOD:\s*(\w+?)(\d{1,2})(\d{4})to(\w+?)(\d{1,2})(\d{4})', all_text)
     if period_match:
         start_month = period_match.group(1)
         start_day = period_match.group(2)
@@ -48,8 +63,16 @@ def extract_transactions(pdf_path, verbose=False, thorough=False):
         end_day = period_match.group(5)
         end_year = int(period_match.group(6))
         print(f"Statement period: {start_month} {start_day}, {start_year} to {end_month} {end_day}, {end_year}")
+        
+        # Verify if years are correct - they should typically be the same or 1 year apart
+        if start_year != end_year and abs(start_year - end_year) > 1:
+            print(f"Warning: Statement period spans multiple years: {start_year} to {end_year}.")
+            # Adjust to use the statement year as primary reference
+            start_year = statement_year
+            end_year = statement_year
+            print(f"Adjusted to use statement year for all transactions: {statement_year}")
     else:
-        print("Warning: Could not find statement period. Using defaults.")
+        print("Warning: Could not find statement period. Using statement year for all transactions.")
     
     # Parse transactions - process the entire document
     transactions = []
@@ -343,14 +366,38 @@ def parse_short_date(date_str, start_year, end_year, statement_month):
     if month_abbr not in months:
         print(f"Warning: Unknown month abbreviation '{month_abbr}' in date '{date_str}'. Using January.")
     
-    # Determine year based on statement period
-    # If statement is January and transaction is December, it's from previous year
-    year = end_year
-    if month_abbr == 'DEC' and statement_month == 'January':
-        year = start_year
-    # If statement is from December and transaction is January, it's from next year
-    elif month_abbr == 'JAN' and statement_month == 'December':
-        year = end_year + 1
+    # Convert statement_month to a month number for comparison
+    statement_month_num = None
+    for m, num in months.items():
+        if statement_month and statement_month.upper().startswith(m):
+            statement_month_num = num
+            break
+    
+    # Determine year based on statement period and month number
+    year = end_year  # Default to end_year
+    
+    # Only apply year adjustments if we have a valid statement month
+    if statement_month_num is not None:
+        # If transaction is from a month significantly earlier than the statement month,
+        # it likely belongs to the end_year (current statement year)
+        # If it's from a month significantly later, it might be from the previous year (start_year)
+        
+        # For statements in the first few months of the year
+        if statement_month_num <= 3:  # Jan, Feb, Mar
+            if month_num >= 10:  # Oct, Nov, Dec
+                # Late months in a statement from early in the year are likely from previous year
+                year = start_year
+                
+        # For statements in the last few months of the year
+        elif statement_month_num >= 10:  # Oct, Nov, Dec
+            if month_num <= 3:  # Jan, Feb, Mar
+                # Early months in a statement from late in the year are likely from next year
+                year = end_year
+                # Ensure we don't inadvertently use the wrong year based on statement period
+                if end_year > start_year:
+                    year = end_year
+                else:
+                    year = start_year + 1
     
     # Format the date
     return f"{year}-{month_num:02d}-{day:02d}"
