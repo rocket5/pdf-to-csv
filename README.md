@@ -118,6 +118,7 @@ This will:
 - Currently optimized for TD credit card statements
 - Requires statements to be in PDF format
 - May require adjustments for other credit card providers
+- The converter is not good with statements with entries from more than one year eg. December often has entries from 2023 and 2024. After converting, manually remove any 2023 entires inputted as 2024 entires from the previous year's December statement.
 
 ## License
 
